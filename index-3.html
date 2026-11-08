@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mt View AV Sign-Up</title>
+<style>
+  :root { --navy:#1F3A5F; --blue:#2E6B8A; --ink:#1d2430; --muted:#5f6b7a; --line:#dde3ea; --bg:#f4f6f9; --mine:#e6f4ea; --mineInk:#1e6b34; --warn:#fff4d6; }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background:var(--bg); color:var(--ink); font-size:16px; }
+  header { background:var(--navy); color:#fff; padding:18px 16px 16px; }
+  header h1 { margin:0; font-size:20px; font-weight:700; }
+  header p { margin:4px 0 0; font-size:14px; opacity:.85; }
+  main { max-width:640px; margin:0 auto; padding:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  label { display:block; font-weight:600; margin:12px 0 6px; }
+  select, input { width:100%; font-size:18px; padding:12px; border:1px solid #b9c3cf; border-radius:8px; background:#fff; }
+  button { font-size:16px; font-weight:600; border:0; border-radius:8px; padding:12px 16px; cursor:pointer; }
+  .primary { background:var(--navy); color:#fff; width:100%; margin-top:16px; }
+  .take { background:var(--blue); color:#fff; padding:9px 14px; }
+  .drop { background:#fff; color:#a33; border:1px solid #e3b7b7; padding:9px 14px; }
+  .link { background:none; color:#fff; text-decoration:underline; padding:0; font-weight:500; font-size:14px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .msg { padding:12px 14px; border-radius:8px; margin-bottom:14px; font-weight:500; }
+  .msg.ok { background:var(--mine); color:var(--mineInk); }
+  .msg.err { background:#fde8e8; color:#8a1f1f; }
+  .hint { color:var(--muted); font-size:14px; margin-top:10px; }
+  .week h2 { margin:0; font-size:18px; }
+  .special { background:#fff4d6; border-left:4px solid #e0a800; border-radius:6px; padding:8px 10px; margin-top:8px; font-size:14px; color:#5c4300; }
+  .special b { display:block; font-size:15px; }
+  .noav { display:inline-block; background:#eceff3; color:#4a5563; border-radius:999px; padding:3px 10px; font-size:13px; font-weight:600; margin-top:6px; }
+  .week.off { opacity:.75; }
+  .badge { display:inline-block; background:var(--warn); color:#7a5600; border-radius:999px; padding:3px 10px; font-size:13px; font-weight:600; margin-top:6px; }
+  .notes { color:var(--muted); font-size:14px; margin-top:6px; }
+  .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
+  .slot:first-of-type { border-top:0; }
+  .slot .role { font-weight:600; }
+  .slot .who { color:var(--muted); font-size:14px; margin-top:2px; }
+  .slot .who.open { color:var(--blue); font-weight:600; }
+  .slot.mine { background:var(--mine); margin:0 -16px; padding:11px 16px; }
+  .slot.mine .who { color:var(--mineInk); font-weight:600; }
+  .slots { margin-top:10px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+  ul.mylist { margin:8px 0 0; padding-left:20px; }
+  ul.mylist li { margin:3px 0; }
+  .muted { color:var(--muted); }
+  .center { text-align:center; padding:30px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mt View AV Sign-Up</h1>
+  <p id="sub">Mountain View Adventist Church</p>
+  <div class="topbar" id="userbar" hidden>
+    <span id="hello"></span>
+    <button class="link" id="logout">Not you? Switch</button>
+  </div>
+</header>
+<main>
+  <div id="msg"></div>
+
+  <section id="loginView" class="card" hidden>
+    <label for="who">Who are you?</label>
+    <select id="who"><option value="">Choose your name…</option></select>
+    <button class="primary" id="go">See the AV schedule</button>
+    <p class="hint" id="joinHint"></p>
+  </section>
+
+  <section id="appView" hidden>
+    <div class="card">
+      <strong>Your upcoming AV spots</strong>
+      <div id="mine"></div>
+      <p class="hint" id="rolesLine"></p>
+    </div>
+    <div id="weeks"></div>
+    <p class="hint center" id="contactLine"></p>
+  </section>
+
+  <div id="loading" class="center muted">Loading…</div>
+</main>
+
+<script>
+  // ▼▼ Paste the Apps Script web app link (ends in /exec) between the quotes ▼▼
+  var API_URL = 'PASTE-APPS-SCRIPT-EXEC-LINK-HERE';
+  // ▲▲ That's the only line you need to change ▲▲
+
+  function api(action, params) {
+    var q = 'action=' + encodeURIComponent(action) + '&t=' + Date.now();
+    Object.keys(params || {}).forEach(function (k) { q += '&' + k + '=' + encodeURIComponent(params[k]); });
+    return fetch(API_URL + '?' + q, { credentials: 'omit', redirect: 'follow', cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('The sign-up sheet could not be reached. Please try again.'); return r.json(); })
+      .then(function (j) { if (!j.ok) throw new Error(j.error || 'Something went wrong.'); return j.data; })
+      .catch(function (e) {
+        if (e instanceof TypeError) throw new Error('Could not reach the sign-up sheet. Check your connection and try again.');
+        throw e;
+      });
+  }
+
+  var state = { name:'', contact:'Chris (AV lead)' };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function store(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+
+  function show(view) {
+    $('loading').hidden = view !== 'loading';
+    $('loginView').hidden = view !== 'login';
+    $('appView').hidden = view !== 'app';
+    $('userbar').hidden = view !== 'app';
+  }
+  function message(text, kind) {
+    var box = $('msg'); box.innerHTML = '';
+    if (!text) return;
+    var d = document.createElement('div'); d.className = 'msg ' + (kind || 'ok'); d.textContent = text; box.appendChild(d);
+    window.scrollTo(0, 0);
+  }
+  function fail(err) {
+    show(state.name ? 'app' : 'login');
+    message((err && err.message) ? err.message.replace(/^Exception:\s*/, '') : 'Something went wrong. Please try again.', 'err');
+    setBusy(false);
+  }
+  function setBusy(b) {
+    Array.prototype.forEach.call(document.querySelectorAll('button'), function (x) { if (x.id !== 'logout') x.disabled = b; });
+  }
+
+  function loadNames() {
+    show('loading');
+    api('names').then(function (res) {
+      state.contact = res.contact;
+      var sel = $('who');
+      res.names.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+      var last = recall('avName');
+      if (last && res.names.indexOf(last) >= 0) sel.value = last;
+      $('joinHint').textContent = 'Not on the list? AV roles need training first – talk to ' + res.contact + ' about joining the team.';
+      show('login');
+      sel.focus();
+      if (sel.value) doLogin();
+    }).catch(fail);
+  }
+
+  function doLogin() {
+    var name = $('who').value;
+    if (!name) return message('Please choose your name.', 'err');
+    message(''); setBusy(true);
+    api('login', { name: name }).then(function (view) {
+      state.name = view.name; store('avName', view.name);
+      render(view);
+    }).catch(function (e) { state.name = ''; store('avName', null); fail(e); });
+  }
+
+  function act(fn, week, role) {
+    setBusy(true);
+    api(fn === 'signUp' ? 'signup' : 'withdraw', { name: state.name, date: week, role: role }).then(render).catch(fail);
+  }
+
+  function render(view) {
+    setBusy(false);
+    show('app');
+    $('hello').textContent = 'Hi, ' + view.name;
+    message(view.message, /sorry|not /i.test(view.message) ? 'err' : 'ok');
+
+    var mine = $('mine'); mine.innerHTML = '';
+    if (view.myDates.length) {
+      var ul = document.createElement('ul'); ul.className = 'mylist';
+      view.myDates.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+      mine.appendChild(ul);
+    } else {
+      var p = document.createElement('p'); p.className = 'muted'; p.style.margin = '8px 0 0';
+      p.textContent = 'Nothing yet. Pick an open spot below.'; mine.appendChild(p);
+    }
+    $('rolesLine').textContent = view.roles.length
+      ? 'You can sign up for: ' + view.roles.join(', ') + '.'
+      : 'You are not on the roster for any AV role yet. Ask ' + view.contact + '.';
+    $('contactLine').textContent = 'Questions, swaps or want to learn a new role? Ask ' + view.contact + '.';
+
+    var wrap = $('weeks'); wrap.innerHTML = '';
+    view.weeks.forEach(function (w) {
+      var card = document.createElement('div'); card.className = 'card week' + (w.noAV ? ' off' : '');
+      var h = document.createElement('h2'); h.textContent = w.label; card.appendChild(h);
+      if (w.noAV) {
+        var na = document.createElement('span'); na.className = 'noav';
+        na.textContent = 'No AV needed' + (w.event ? ' – ' + w.event : ''); card.appendChild(na);
+      } else if (w.event) {
+        var sp = document.createElement('div'); sp.className = 'special';
+        var sb = document.createElement('b'); sb.textContent = '⭐ ' + w.event; sp.appendChild(sb);
+        sp.appendChild(document.createTextNode(view.specialNote)); card.appendChild(sp);
+      }
+      if (w.notes) { var n = document.createElement('div'); n.className = 'notes'; n.textContent = w.notes; card.appendChild(n); }
+      var slots = document.createElement('div'); slots.className = 'slots';
+      if (w.noAV && !w.slots.some(function (s) { return s.who; })) {
+        var e = document.createElement('div'); e.className = 'notes'; e.textContent = 'No AV sign-ups this week.'; slots.appendChild(e);
+      } else {
+        w.slots.forEach(function (s) {
+          var row = document.createElement('div'); row.className = 'slot' + (s.mine ? ' mine' : '');
+          var left = document.createElement('div');
+          var r = document.createElement('div'); r.className = 'role'; r.textContent = s.label;
+          var who = document.createElement('div'); who.className = 'who' + (!s.who ? ' open' : '');
+          who.textContent = s.who ? s.who : (s.qualified && !w.noAV ? 'Open' : (w.noAV ? 'Not needed' : 'Open – not on your roster'));
+          if (!s.who && !(s.qualified && !w.noAV)) who.className = 'who';
+          left.appendChild(r); left.appendChild(who); row.appendChild(left);
+          if (s.mine) {
+            var d = document.createElement('button'); d.className = 'drop'; d.textContent = 'Remove me';
+            d.onclick = function () {
+              if (d.dataset.armed) return act('withdraw', w.key, s.key);
+              d.dataset.armed = '1'; d.textContent = 'Tap again to remove';
+              setTimeout(function () { delete d.dataset.armed; d.textContent = 'Remove me'; }, 4000);
+            };
+            row.appendChild(d);
+          } else if (s.canTake) {
+            var t = document.createElement('button'); t.className = 'take'; t.textContent = 'Sign up';
+            t.onclick = function () { act('signUp', w.key, s.key); };
+            row.appendChild(t);
+          }
+          slots.appendChild(row);
+        });
+      }
+      card.appendChild(slots);
+      wrap.appendChild(card);
+    });
+  }
+
+  $('go').onclick = doLogin;
+  $('who').addEventListener('change', function () { if ($('who').value) doLogin(); });
+  $('logout').onclick = function () { state.name = ''; store('avName', null); $('who').value = ''; message(''); show('login'); };
+  loadNames();
+</script>
+</body>
+</html>
