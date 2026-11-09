@@ -33,12 +33,19 @@
   .week.off { opacity:.75; }
   .badge { display:inline-block; background:var(--warn); color:#7a5600; border-radius:999px; padding:3px 10px; font-size:13px; font-weight:600; margin-top:6px; }
   .notes { color:var(--muted); font-size:14px; margin-top:6px; }
+  .notes.lead { white-space:pre-wrap; }
+  .editnotes { background:none; color:var(--blue); padding:6px 0 0; font-size:14px; font-weight:600; text-decoration:underline; }
+  .noteedit textarea { width:100%; font-size:16px; font-family:inherit; padding:10px; border:1px solid #b9c3cf; border-radius:8px; min-height:84px; margin-top:8px; }
+  .noteedit .row { display:flex; gap:8px; margin-top:8px; }
+  .cancel { background:#fff; color:var(--ink); border:1px solid #b9c3cf; padding:9px 14px; }
   .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
   .slot:first-of-type { border-top:0; }
   .slot .role { font-weight:600; }
   .slot .who { color:var(--muted); font-size:14px; margin-top:2px; }
   .slot .who.open { color:var(--blue); font-weight:600; }
   .slot.mine { background:var(--mine); margin:0 -16px; padding:11px 16px; }
+  .slot.fri { background:#eaf2fb; margin:0 -16px; padding:11px 16px; border-top:0; }
+  .slot.mine.fri { background:#f2faf4; }   /* your own Friday Setup: lighter green than Sabbath jobs */
   .slot.mine .who { color:var(--mineInk); font-weight:600; }
   .slots { margin-top:10px; }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
@@ -154,6 +161,32 @@
     api(fn === 'signUp' ? 'signup' : 'withdraw', { name: state.name, date: week, role: role }).then(render).catch(fail);
   }
 
+  function submitNotes(week, text) {
+    setBusy(true);
+    api('notes', { name: state.name, date: week, notes: text }).then(render).catch(fail);
+  }
+
+  // Production Leads: edit the week's Notes (saved into the Notes column of the AV Schedule tab)
+  function notesEditor(w) {
+    var box = document.createElement('div'); box.className = 'noteedit';
+    var open = document.createElement('button'); open.className = 'editnotes';
+    open.textContent = w.notes ? '✏️ Edit notes' : '✏️ Add notes';
+    open.onclick = function () {
+      box.innerHTML = '';
+      var ta = document.createElement('textarea'); ta.maxLength = 500; ta.value = w.notes || '';
+      ta.placeholder = 'Notes for the AV team this week (e.g. Travis to learn the system)';
+      var row = document.createElement('div'); row.className = 'row';
+      var save = document.createElement('button'); save.className = 'take'; save.textContent = 'Save notes';
+      var cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancel';
+      save.onclick = function () { submitNotes(w.key, ta.value); };
+      cancel.onclick = function () { box.innerHTML = ''; box.appendChild(open); };
+      row.appendChild(save); row.appendChild(cancel);
+      box.appendChild(ta); box.appendChild(row); ta.focus();
+    };
+    box.appendChild(open);
+    return box;
+  }
+
   function render(view) {
     setBusy(false);
     show('app');
@@ -186,13 +219,14 @@
         var sb = document.createElement('b'); sb.textContent = '⭐ ' + w.event; sp.appendChild(sb);
         sp.appendChild(document.createTextNode(view.specialNote)); card.appendChild(sp);
       }
-      if (w.notes) { var n = document.createElement('div'); n.className = 'notes'; n.textContent = w.notes; card.appendChild(n); }
+      if (w.notes) { var n = document.createElement('div'); n.className = 'notes' + (view.canEditNotes ? ' lead' : ''); n.textContent = w.notes; card.appendChild(n); }
+      if (view.canEditNotes) card.appendChild(notesEditor(w));
       var slots = document.createElement('div'); slots.className = 'slots';
       if (w.noAV && !w.slots.some(function (s) { return s.who; })) {
         var e = document.createElement('div'); e.className = 'notes'; e.textContent = 'No AV sign-ups this week.'; slots.appendChild(e);
       } else {
         w.slots.forEach(function (s) {
-          var row = document.createElement('div'); row.className = 'slot' + (s.mine ? ' mine' : '');
+          var row = document.createElement('div'); row.className = 'slot' + (s.mine ? ' mine' : '') + (s.day === 'fri' ? ' fri' : '');
           var left = document.createElement('div');
           var r = document.createElement('div'); r.className = 'role'; r.textContent = s.label;
           var who = document.createElement('div'); who.className = 'who' + (!s.who ? ' open' : '');
