@@ -33,11 +33,14 @@
   .week.off { opacity:.75; }
   .badge { display:inline-block; background:var(--warn); color:#7a5600; border-radius:999px; padding:3px 10px; font-size:13px; font-weight:600; margin-top:6px; }
   .notes { color:var(--muted); font-size:14px; margin-top:6px; }
-  .weeknote { background:#f3f5f8; border-left:4px solid #c3ccd7; border-radius:6px; padding:8px 10px; margin-top:8px; font-size:14px; color:#3d4653; white-space:pre-wrap; }
-  .weeknote b { display:block; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#5f6b7a; margin-bottom:2px; }
-  .editnotes { background:none; color:var(--blue); padding:6px 0 0; font-size:14px; font-weight:600; text-decoration:underline; }
-  .noteedit textarea { width:100%; font-size:16px; font-family:inherit; padding:10px; border:1px solid #b9c3cf; border-radius:8px; min-height:84px; margin-top:8px; }
-  .noteedit .row { display:flex; gap:8px; margin-top:8px; }
+  .weeknote { background:#f3f5f8; border-left:4px solid #c3ccd7; border-radius:6px; padding:8px 10px; margin-top:8px; font-size:14px; color:#3d4653; }
+  .weeknote .nhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+  .weeknote .nhead b { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#5f6b7a; }
+  .weeknote .nbody { white-space:pre-wrap; }
+  .weeknote .nbody.empty { color:#8a94a3; font-style:italic; }
+  .editnotes { background:none; color:var(--blue); padding:2px 0; font-size:13px; font-weight:600; text-decoration:underline; }
+  .weeknote textarea { width:100%; font-size:16px; font-family:inherit; padding:10px; border:1px solid #b9c3cf; border-radius:8px; min-height:84px; margin-top:4px; background:#fff; }
+  .weeknote .row { display:flex; gap:8px; margin-top:8px; }
   .cancel { background:#fff; color:var(--ink); border:1px solid #b9c3cf; padding:9px 14px; }
   .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
   .slot:first-of-type { border-top:0; }
@@ -167,24 +170,35 @@
     api('notes', { name: state.name, date: week, notes: text }).then(render).catch(fail);
   }
 
-  // Production Leads: edit the week's Notes (saved into the Notes column of the AV Schedule tab)
-  function notesEditor(w) {
-    var box = document.createElement('div'); box.className = 'noteedit';
+  // The grey Notes box for a week. Production Leads get an Edit/Add link inside it (saves into the Notes column).
+  function notesBox(w, canEdit) {
+    var box = document.createElement('div'); box.className = 'weeknote';
+    var head = document.createElement('div'); head.className = 'nhead';
+    var lbl = document.createElement('b'); lbl.textContent = 'Notes'; head.appendChild(lbl);
+    var body = document.createElement('div');
+    function showText() {
+      body.className = 'nbody' + (w.notes ? '' : ' empty');
+      body.textContent = w.notes || 'No notes yet.';
+    }
+    showText();
+    box.appendChild(head); box.appendChild(body);
+    if (!canEdit) return box;
     var open = document.createElement('button'); open.className = 'editnotes';
-    open.textContent = w.notes ? '✏️ Edit notes' : '✏️ Add notes';
+    open.textContent = w.notes ? '✏️ Edit' : '✏️ Add';
+    head.appendChild(open);
     open.onclick = function () {
-      box.innerHTML = '';
+      open.hidden = true;
+      body.className = ''; body.innerHTML = '';
       var ta = document.createElement('textarea'); ta.maxLength = 500; ta.value = w.notes || '';
-      ta.placeholder = 'Notes for the AV team this week (e.g. Travis to learn the system)';
+      ta.placeholder = 'Notes for the AV team this week (e.g. Jordan shadowing Video Director)';
       var row = document.createElement('div'); row.className = 'row';
       var save = document.createElement('button'); save.className = 'take'; save.textContent = 'Save notes';
       var cancel = document.createElement('button'); cancel.className = 'cancel'; cancel.textContent = 'Cancel';
       save.onclick = function () { submitNotes(w.key, ta.value); };
-      cancel.onclick = function () { box.innerHTML = ''; box.appendChild(open); };
+      cancel.onclick = function () { open.hidden = false; showText(); };
       row.appendChild(save); row.appendChild(cancel);
-      box.appendChild(ta); box.appendChild(row); ta.focus();
+      body.appendChild(ta); body.appendChild(row); ta.focus();
     };
-    box.appendChild(open);
     return box;
   }
 
@@ -220,12 +234,7 @@
         var sb = document.createElement('b'); sb.textContent = '⭐ ' + w.event; sp.appendChild(sb);
         sp.appendChild(document.createTextNode(view.specialNote)); card.appendChild(sp);
       }
-      if (w.notes) {
-        var n = document.createElement('div'); n.className = 'weeknote';
-        var nb = document.createElement('b'); nb.textContent = 'Notes'; n.appendChild(nb);
-        n.appendChild(document.createTextNode(w.notes)); card.appendChild(n);
-      }
-      if (view.canEditNotes) card.appendChild(notesEditor(w));
+      if (w.notes || view.canEditNotes) card.appendChild(notesBox(w, view.canEditNotes));
       var slots = document.createElement('div'); slots.className = 'slots';
       if (w.noAV && !w.slots.some(function (s) { return s.who; })) {
         var e = document.createElement('div'); e.className = 'notes'; e.textContent = 'No AV sign-ups this week.'; slots.appendChild(e);
